@@ -51,3 +51,84 @@
 - 投稿削除 / 通報機能
 - WebSocketでのリアルタイム更新
 - QRコード投稿 / 限定公開
+
+# 全体構成図
+
+## アプリ機能構成
+User（メールアドレス）ログイン
+   ↓
+Frontend (React)
+   ↓
+Backend (Flask REST API)
+   ├── 投稿作成
+   ├── 投稿取得・閲覧数更新
+   ├── OTP発行・認証
+   └── 画像アップロード（予定）
+   ↓
+PostgreSQL / SQLite（最小構成はSQLite）
+
+## ☁️ Kubernetes & CI/CD 構成図
+[ GitHub ]
+   └─ Push
+       ↓
+[ GitHub Actions ]
+   └─ Build & Push Docker image
+       ↓
+[ Docker Hub（or private registry）]
+
+[ Argo CD ]
+   └─ Watch Git Repo for Manifests
+       ↓
+[ Kubernetes Cluster (on mini PC) ]
+   ├── Pod: frontend (React + Nginx)
+   ├── Pod: backend (Flask + Gunicorn)
+   ├── Pod: postgres or PV-mounted SQLite
+   └── Service / Ingress / PVC
+
+## インフラ構成（mini PC 上）
+層	構成
+ホストOS	Ubuntu Server / Proxmox VE
+仮想基盤	KVM（libvirt）or Proxmox
+仮想マシン	k8s-master（2vCPU / 2GB）
+k8s-node1（2vCPU / 4GB）
+K8s構築方法	Kubespray（最小構成）
+GitOps	Argo CD
+CI/CD	GitHub Actions + Docker Hub
+
+## kubernetes Namespace & Pod 設計案
+Namespace	Pod名	機能
+sns-app	frontend	React SPA + Nginx
+sns-app	backend	Flask REST API + Gunicorn
+sns-app	postgres or sqlite	DBサーバー
+argocd	ArgoCD一式	GitOps管理ツール
+
+# ディレクトリ構成（Git）
+
+sns-project/
+├── backend/
+│   ├── app.py
+│   ├── Dockerfile
+│   └── ...
+├── frontend/
+│   ├── src/
+│   ├── Dockerfile
+│   └── ...
+├── k8s-manifests/
+│   ├── frontend.yaml
+│   ├── backend.yaml
+│   ├── ingress.yaml
+│   └── ...
+├── README.md
+└── .github/
+    └── workflows/
+        └── deploy.yml（CI/CD設定
+        
+## 検討課題
+ 備考
+開発初期は SQLite + Local PV でOK
+
+投稿画像は static/images に保存してもよい（本番はS3推奨）
+
+OTPの送信には SendGrid / Mailgun / SMTP など使用可能
+
+Argo CD の GUI は NodePort or Ingress でアクセス可能
